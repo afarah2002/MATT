@@ -22,8 +22,8 @@ class GazeToMouse(object):
 		print("Calibrating...")
 		gaze = GazeTracking()
 		webcam = cv2.VideoCapture(0)
-		webcam.set(3, 2560);
-		webcam.set(4, 1080);
+		webcam.set(3, 2560)
+		webcam.set(4, 1080)
 
 		# while time.time < timeout_start + time.time():
 			# # timer
@@ -44,7 +44,7 @@ class GazeToMouse(object):
 			left_pupil = gaze.pupil_left_coords()
 			right_pupil = gaze.pupil_right_coords()
 
-			cv2.imshow("Demo", frame)
+			# cv2.imshow("Demo", frame)
 
 			if left_pupil is not None and right_pupil is not None:
 				self.eyeCenter = np.average([left_pupil, right_pupil], axis=0)
@@ -62,14 +62,22 @@ class GazeToMouse(object):
 		webcam.set(3, 2560);
 		webcam.set(4, 1080);
 		mouse = Controller()
-		screenCenter = [2560/2, 1080/2]
-		mouse.position = tuple(screenCenter)
-		scaleFactor = 10
+		newPos = [2560/2, 1080/2]
+		mouse.position = tuple(newPos)
+		scaleFactor = 2.5
+		pid = PID(1, 0.1, 0.05, setpoint=1)
 		eyeStateLIST = []
 
 		while True:
+			controlX = 4*pid(mouse.position[0] - newPos[0])
+			controlY = 1.8*pid(mouse.position[1] - newPos[1])
+
+			# print("Current position:")
 			# We get a new frame from the webcam
 			_, frame = webcam.read()
+			frame = cv2.flip(frame, 1)
+			# webcam.set(3, 2560)
+			# webcam.set(4, 1080)
 
 			# We send this frame to GazeTracking to analyze it
 			gaze.refresh(frame)
@@ -97,6 +105,8 @@ class GazeToMouse(object):
 			# 	text = "Looking center"
 			# print(eyeStateLIST)
 			# print(eyeStateAvg)
+
+
 			cv2.putText(frame, text, (90, 60), cv2.FONT_HERSHEY_DUPLEX, 1.6, (147, 58, 31), 2)
 
 			left_pupil = gaze.pupil_left_coords()
@@ -108,19 +118,31 @@ class GazeToMouse(object):
 
 			if left_pupil is not None and right_pupil is not None:
 				newCoord = np.average([left_pupil, right_pupil], axis=0)
-				changeX = self.eyeCenter[0]-newCoord[0]
-				changeY = newCoord[1]-self.eyeCenter[1]
+				newCoord[0] *= 4
+				newCoord[1] *= 1.8
+				# changeX = self.eyeCenter[0]-newCoord[0]
+				# changeY = newCoord[1]-self.eyeCenter[1]
 
-				# if changex > changeBuffer or changey > changeBuffer:
-				change = [changeX, changeY]
+				changeX = controlX*10
+				changeY = controlY*10
+
+				print(changeX, changeY)
+
+				# if changeX < changeBuffer or changeY < changeBuffer:
+				# change = [changeX, changeY]
 				# else:
-				scaledChange = np.multiply(change, scaleFactor)
-				newPos = np.add(screenCenter, scaledChange)
-				mouse.position = tuple(newPos)
-				# print(newPos)
+				# newPos = np.add(screenCenter, scaledChange)
 
-				if eyeState == "Blinking":					
-					mouse.click(Button.left, 1)
+				newPos = (newCoord[0]+changeX, newCoord[1]+changeY)
+				# print("\n", newCoord)
+				# print(newPos)
+				# print(newPos)
+				# print("Destination:")
+
+				mouse.position = newPos
+				# time.sleep(0.01)
+				# if eyeState == "Blinking":					
+				# 	mouse.click(Button.left, 1)
 
 			if cv2.waitKey(1) == 27:
 				break
@@ -132,3 +154,4 @@ GTM = GazeToMouse()
 if __name__ == '__main__':
 	GTM
 	GTM.MoveMouse()
+
