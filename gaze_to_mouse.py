@@ -8,6 +8,8 @@ from simple_pid import PID
 #----------code starts here!----------#
 sys.path.insert(0, '/home/nasa01/Documents/MATT/GazeTracking')
 from GazeTracking.gaze_tracking import GazeTracking
+# sys.path.insert(0, '/home/nasa01/Documents/MATT/PyOpenCV/pygazetracker')
+# from webcam import WebCamTracker
 
 class GazeToMouse(object):
 
@@ -22,15 +24,19 @@ class GazeToMouse(object):
 		print("Calibrating...")
 		gaze = GazeTracking()
 		webcam = cv2.VideoCapture(0)
-		webcam.set(3, 2560);
-		webcam.set(4, 1080);
+		# EyeTracker(webcam)
+		# webcam.set(3, 2560);
+		# webcam.set(4, 1080);
 
-		# while time.time < timeout_start + time.time():
-			# # timer
-			# test = 0
-		 #    if test == 5:
-		 #        break
-		 #    test -= 1
+		imageWidth  = webcam.get(3) # float
+		imageHeight = webcam.get(4) # float
+
+		self.imageCenter = (imageWidth/2, imageHeight/2)
+		print("image center", self.imageCenter)
+		
+		mouse = Controller()
+		screenCenter = [2560/2, 1080/2]
+		mouse.position = tuple(screenCenter)
 
 		while True:
 			# We get a new frame from the webcam
@@ -59,17 +65,24 @@ class GazeToMouse(object):
 
 		gaze = GazeTracking()
 		webcam = cv2.VideoCapture(0)
-		webcam.set(3, 2560);
-		webcam.set(4, 1080);
+		# webcam.set(3, 2560);
+		# webcam.set(4, 1080);
 		mouse = Controller()
 		screenCenter = [2560/2, 1080/2]
 		mouse.position = tuple(screenCenter)
-		scaleFactor = 10
+		scaleFactor = 1.2
+		pid = PID(.5, .5, 0.05, setpoint=1)
 		eyeStateLIST = []
 
+		scaledChange = [0,0]
+
 		while True:
+			# print(changeX)
+			controlChangeX = pid((mouse.position[0] - screenCenter[0]) - scaledChange[0])
+			controlChangeY = pid((screenCenter[1] - mouse.position[1]) - scaledChange[1])
 			# We get a new frame from the webcam
 			_, frame = webcam.read()
+			frame = cv2.flip(frame, 1)
 
 			# We send this frame to GazeTracking to analyze it
 			gaze.refresh(frame)
@@ -84,8 +97,9 @@ class GazeToMouse(object):
 				eyeStateNum = 0
 
 			eyeStateLIST.append(eyeStateNum)
-			if len(eyeStateLIST) > 10:
-				eyeStateAvg = np.rint(np.mean(eyeStateLIST[-9:-1]))
+			if len(eyeStateLIST) > 6:
+				eyeStateAvg = np.rint(np.mean(eyeStateLIST[-5:-1]))
+				del eyeStateLIST[0]
 			else:
 				eyeStateAvg = 0
 
@@ -108,19 +122,25 @@ class GazeToMouse(object):
 
 			if left_pupil is not None and right_pupil is not None:
 				newCoord = np.average([left_pupil, right_pupil], axis=0)
-				changeX = self.eyeCenter[0]-newCoord[0]
-				changeY = newCoord[1]-self.eyeCenter[1]
+				changeX = newCoord[0]-self.imageCenter[0]
+				changeY = newCoord[1]-self.imageCenter[1]
 
 				# if changex > changeBuffer or changey > changeBuffer:
 				change = [changeX, changeY]
 				# else:
-				scaledChange = np.multiply(change, scaleFactor)
-				newPos = np.add(screenCenter, scaledChange)
-				mouse.position = tuple(newPos)
-				# print(newPos)
+				scaledChange = np.average([[controlChangeX, controlChangeY], [change[0]*40, change[1]*10]], axis=0)
 
-				if eyeState == "Blinking":					
+				newPos = np.add(screenCenter, np.multiply(scaledChange,1))
+
+				# print(newPos)
+				if newPos[0] > 0 and newPos[0] < 2560 and newPos[1] > 0 and newPos[1] < 1080:
+					mouse.position = newPos	
+				else:
+					break
+
+				if eyeStateAvg == 1:					
 					mouse.click(Button.left, 1)
+			print(mouse.position) 
 
 			if cv2.waitKey(1) == 27:
 				break
@@ -131,4 +151,7 @@ GTM = GazeToMouse()
 
 if __name__ == '__main__':
 	GTM
-	GTM.MoveMouse()
+	while True:
+		GTM.MoveMouse()
+
+
