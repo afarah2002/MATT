@@ -6,10 +6,10 @@ import sys
 import time
 from simple_pid import PID
 #----------code starts here!----------#
+from eye_tracker import EyeTracker
+from face_tracker import FaceTracker
 sys.path.insert(0, '/home/nasa01/Documents/MATT/GazeTracking')
 from GazeTracking.gaze_tracking import GazeTracking
-# sys.path.insert(0, '/home/nasa01/Documents/MATT/PyOpenCV/pygazetracker')
-# from webcam import WebCamTracker
 
 class GazeToMouse(object):
 
@@ -50,11 +50,18 @@ class GazeToMouse(object):
 			left_pupil = gaze.pupil_left_coords()
 			right_pupil = gaze.pupil_right_coords()
 
-			cv2.imshow("Demo", frame)
+			# cv2.imshow("Demo", frame)
+
+			# EyeTracker()
+			# eye_coord = EyeTracker().trackeyes(frame)
+			# if eye_coord is not None:
+			# 	print(eye_coord)
+			# 	self.fine_eyeCenter = eye_coord
+
 
 			if left_pupil is not None and right_pupil is not None:
-				self.eyeCenter = np.average([left_pupil, right_pupil], axis=0)
-				print(self.eyeCenter)
+				self.coarse_eyeCenter = np.average([left_pupil, right_pupil], axis=0)
+				print(self.coarse_eyeCenter)
 
 				break
 
@@ -69,9 +76,9 @@ class GazeToMouse(object):
 		# webcam.set(4, 1080);
 		mouse = Controller()
 		screenCenter = [2560/2, 1080/2]
-		mouse.position = tuple(screenCenter)
+		# mouse.position = tuple(screenCenter)
 		scaleFactor = 1.2
-		pid = PID(.5, .5, 0.05, setpoint=1)
+		pid = PID(.2, .2, 0.01, setpoint=1)
 		eyeStateLIST = []
 
 		scaledChange = [0,0]
@@ -81,8 +88,15 @@ class GazeToMouse(object):
 			controlChangeX = pid((mouse.position[0] - screenCenter[0]) - scaledChange[0])
 			controlChangeY = pid((screenCenter[1] - mouse.position[1]) - scaledChange[1])
 			# We get a new frame from the webcam
-			_, frame = webcam.read()
-			frame = cv2.flip(frame, 1)
+			_, webcam_frame = webcam.read()
+
+			FaceTracker()
+			face_center = FaceTracker().trackface(webcam_frame)
+			# print(face_center)
+			# FaceTracker()
+			# face_frame = FaceTracker().trackeyes(webcam_frame)
+			# face_frame = FaceTracker().get_face_frame()
+			frame = cv2.flip(webcam_frame, 1)
 
 			# We send this frame to GazeTracking to analyze it
 			gaze.refresh(frame)
@@ -120,27 +134,42 @@ class GazeToMouse(object):
 
 			cv2.imshow("Demo", frame)
 
-			if left_pupil is not None and right_pupil is not None:
-				newCoord = np.average([left_pupil, right_pupil], axis=0)
-				changeX = newCoord[0]-self.imageCenter[0]
-				changeY = newCoord[1]-self.imageCenter[1]
+			if left_pupil is not None:
+				coarse_newCoord = left_pupil
+			if right_pupil is not None:
+				coarse_newCoord = right_pupil
+
+			if left_pupil is not None or right_pupil is not None:
+				# coarse_newCoord = np.average([left_pupil, right_pupil], axis=0)
+				changeX = coarse_newCoord[0]-self.imageCenter[0]
+				changeY = coarse_newCoord[1]-self.imageCenter[1]
 
 				# if changex > changeBuffer or changey > changeBuffer:
 				change = [changeX, changeY]
 				# else:
-				scaledChange = np.average([[controlChangeX, controlChangeY], [change[0]*40, change[1]*10]], axis=0)
+				scaledChange = np.average([[controlChangeX, controlChangeY], [change[0]*25, change[1]*10]], axis=0)
 
 				newPos = np.add(screenCenter, np.multiply(scaledChange,1))
 
 				# print(newPos)
-				if newPos[0] > 0 and newPos[0] < 2560 and newPos[1] > 0 and newPos[1] < 1080:
+				if newPos[0] > 10 and newPos[0] < 2550 and newPos[1] > 10 and newPos[1] < 1070:
 					mouse.position = newPos	
 				else:
 					break
+					# pass
 
 				if eyeStateAvg == 1:					
 					mouse.click(Button.left, 1)
-			print(mouse.position) 
+				print(mouse.position) 
+			else:
+				########################3
+				# fine control pupil follower
+
+
+				pass
+				# EyeTracker()
+				# fine_newCoord = EyeTracker().trackeyes(frame)
+				# print(fine_newCoord)
 
 			if cv2.waitKey(1) == 27:
 				break
