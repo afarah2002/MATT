@@ -152,11 +152,11 @@ class GazeToMouse(object):
 				newPos = np.add(screenCenter, np.multiply(scaledChange,1))
 
 				# print(newPos)
-				if newPos[0] > 10 and newPos[0] < 2550 and newPos[1] > 10 and newPos[1] < 1070:
+				if newPos[0] > 0 and newPos[0] < 2560 and newPos[1] > 0 and newPos[1] < 1080:
 					mouse.position = newPos	
 				else:
-					break
-					# pass
+					# break
+					pass
 
 				if eyeStateAvg == 1:					
 					mouse.click(Button.left, 1)

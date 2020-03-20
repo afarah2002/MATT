@@ -85,7 +85,7 @@ class FaceToMouse(object):
 					mouse.position = newPos	
 				else:
 					break
-
+					
 
 
 			# show full view
